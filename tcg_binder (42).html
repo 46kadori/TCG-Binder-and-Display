@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TCG BINDER Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ee; --surface: #ffffff; --surface2: #eeece7;
+    --border: rgba(0,0,0,0.1); --border-strong: rgba(0,0,0,0.2);
+    --text: #1a1a18; --text-muted: #6b6960; --text-faint: #a8a49c;
+    --legacy-bg: #fef3dc; --legacy-border: #c98a1a; --legacy-text: #7a4f00; --legacy-star: #d4900f;
+    --new-bg: #e6f1fb; --new-border: #378add; --new-text: #0c447c; --new-star: #185fa5;
+    --btn-hover: #eeece7; --danger: #c0392b; --danger-bg: #fdf0ee;
+    --sold-overlay: rgba(0,0,0,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141412; --surface: #1e1d1a; --surface2: #28271f;
+      --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+      --text: #f0ede6; --text-muted: #9e9a91; --text-faint: #5c5a54;
+      --legacy-bg: #2e2206; --legacy-border: #c98a1a; --legacy-text: #f5c96a; --legacy-star: #e6a820;
+      --new-bg: #042c53; --new-border: #378add; --new-text: #b5d4f4; --new-star: #85b7eb;
+      --btn-hover: #28271f; --danger: #e05c4a; --danger-bg: #2a1410;
+      --sold-overlay: rgba(0,0,0,0.35);
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-top: 130px; /* space for sticky header */
+    padding-bottom: 4rem;
+  }
+
+  /* ── Sticky header ── */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 1rem;
+  }
+
+  .header-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .wordmark {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .header-center {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* ── Summary card ── */
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .summary-row {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+  }
+  .summary-dot {
+    width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+  }
+  .summary-dot-legacy { background: var(--legacy-border); }
+  .summary-dot-new    { background: var(--new-border); }
+  .summary-dot-profit { background: #16a34a; }
+  @media (prefers-color-scheme: dark) { .summary-dot-profit { background: #22c55e; } }
+  .summary-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint); min-width: 52px; flex-shrink: 0;
+  }
+  .summary-val { color: var(--text-muted); white-space: nowrap; }
+  .summary-sep { color: var(--text-faint); }
+  .legacy-val { color: var(--legacy-text); }
+  .new-val    { color: var(--new-text); }
+  .profit-val { color: #16a34a; font-weight: 500; }
+  @media (prefers-color-scheme: dark) { .profit-val { color: #22c55e; } }
+  .revenue-input-inline {
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+    background: transparent; border: none; outline: none;
+    color: var(--text); width: 70px; text-align: left;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .revenue-input-inline::placeholder { color: var(--text-faint); opacity: 0.5; }
+  .cost-input::-webkit-outer-spin-button,
+  .cost-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .header-right {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  button {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--text);
+    cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  }
+  button:hover { background: var(--btn-hover); }
+  button:active { transform: scale(0.97); }
+  .btn-ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { background: var(--btn-hover); color: var(--text); }
+
+  /* ── Pages ── */
+  #pages {
+    max-width: 900px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 1rem;
+    padding: 1.5rem 1rem 0;
+  }
+
+
+  .row-solo { display: grid; grid-template-columns: 1fr; max-width: 440px; width: 100%; }
+  .row-pair { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+
+  .page-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1rem; animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.875rem; gap: 8px; }
+  .page-title-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+  .page-title { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; max-width: 160px; }
+  .page-title:hover { color: var(--text); }
+  .page-title-input { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); background: var(--surface2); border: 1px solid var(--border-strong); border-radius: 5px; padding: 2px 6px; outline: none; width: 130px; display: none; }
+  .page-title-input:focus { border-color: var(--new-border); }
+  .edit-icon { font-size: 11px; color: var(--text-faint); cursor: pointer; flex-shrink: 0; padding: 2px 4px; border-radius: 4px; transition: color 0.15s, background 0.15s; user-select: none; }
+  .edit-icon:hover { color: var(--text-muted); background: var(--btn-hover); }
+  .page-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .page-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-faint); }
+  .remove-btn { font-size: 11px; padding: 2px 8px; border-color: transparent; background: none; color: var(--text-faint); border-radius: 6px; }
+  .remove-btn:hover { color: var(--danger); background: var(--danger-bg); }
+
+  /* ── Grid & pockets ── */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+  .pocket {
+    aspect-ratio: 2.5 / 3.5;
+    border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative; user-select: none;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    overflow: hidden;
+  }
+  .pocket:hover { border-color: var(--border-strong); transform: scale(1.03); }
+  .pocket.legacy  { background: var(--legacy-bg); border-color: var(--legacy-border); }
+  .pocket.new-inv { background: var(--new-bg);    border-color: var(--new-border); }
+
+  /* Sold state — strikethrough overlay */
+  .pocket.sold::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--sold-overlay);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+  .pocket.sold::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 10%; right: 10%;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.5;
+    transform: translateY(-50%) rotate(-18deg);
+    pointer-events: none;
+    border-radius: 2px;
+  }
+  .pocket.legacy.sold::before  { background: var(--legacy-border); opacity: 0.7; }
+  .pocket.new-inv.sold::before { background: var(--new-border);    opacity: 0.7; }
+
+  .slot-num { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text-faint); position: absolute; top: 6px; left: 7px; transition: color 0.15s; }
+  .pocket.legacy  .slot-num { color: var(--legacy-text); }
+  .pocket.new-inv .slot-num { color: var(--new-text); }
+
+  .star { font-size: 16px; line-height: 1; opacity: 0; transform: scale(0.5); transition: opacity 0.2s, transform 0.2s; }
+  .pocket.legacy  .star { opacity: 1; transform: scale(1); color: var(--legacy-star); }
+  .pocket.new-inv .star { opacity: 1; transform: scale(1); color: var(--new-star); }
+
+  /* Sold button — bottom right of pocket, ~12% of box */
+  .sold-btn {
+    position: absolute; bottom: 0; right: 0;
+    width: 38%; height: 22%;
+    font-size: 9px; font-weight: 500;
+    padding: 0;
+    border-radius: 6px 0 6px 0;
+    border: 1px solid var(--border-strong);
+    border-right: none; border-bottom: none;
+    background: var(--surface); color: var(--text-muted);
+    cursor: pointer; opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    z-index: 2;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pocket:hover .sold-btn { opacity: 1; }
+  .pocket.sold .sold-btn {
+    opacity: 1;
+    background: var(--danger-bg); color: var(--danger);
+    border-color: var(--danger);
+  }
+  .pocket.legacy.sold  .sold-btn { background: var(--legacy-bg); color: var(--legacy-text); border-color: var(--legacy-border); }
+  .pocket.new-inv.sold .sold-btn { background: var(--new-bg);    color: var(--new-text);    border-color: var(--new-border); }
+
+  /* Cost basis input — bottom left, new cards only */
+  .cost-input-wrap {
+    position: absolute; bottom: 0; left: 0;
+    width: 44%; height: 22%;
+    border-radius: 0 6px 0 6px;
+    border: 1px solid var(--new-border);
+    border-left: none; border-bottom: none;
+    background: #b5d4f4;
+    display: none; align-items: center; justify-content: center;
+    gap: 1px; z-index: 2; overflow: hidden;
+  }
+  @media (prefers-color-scheme: dark) { .cost-input-wrap { background: #0c447c; } }
+  .pocket.new-inv .cost-input-wrap { display: flex; }
+  .cost-prefix {
+    font-family: 'DM Mono', monospace; font-size: 8px;
+    color: var(--new-text); padding-left: 4px; flex-shrink: 0; opacity: 0.7;
+  }
+  .cost-input {
+    font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500;
+    color: var(--new-text); background: transparent;
+    border: none; outline: none; width: 100%;
+    padding: 0 4px 0 1px; text-align: right;
+  }
+  .cost-input::placeholder { color: var(--new-text); opacity: 0.4; }
+
+  /* ── Footer ── */
+  .page-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.875rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .legend { display: flex; align-items: center; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-faint); }
+  .legend-swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .swatch-legacy { background: var(--legacy-bg); border: 1px solid var(--legacy-border); }
+  .swatch-new    { background: var(--new-bg);    border: 1px solid var(--new-border); }
+  .clear-btn { font-size: 11px; padding: 2px 8px; border-color: transparent; background: none; color: var(--text-faint); }
+  .clear-btn:hover { color: var(--text-muted); background: var(--btn-hover); }
+
+  @media (max-width: 540px) {
+    .row-pair { grid-template-columns: 1fr; }
+    .row-solo { max-width: 100%; }
+  }
+
+  /* ── Tab nav ── */
+  .header-tabs {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .header-tab {
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: transparent; color: var(--text-faint);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .header-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .header-tab:hover:not(.active) { background: var(--btn-hover); color: var(--text); }
+
+
+
+  /* ── Display Case ── */
+  .display-wrap { display: none; }
+  .display-wrap.visible { display: block; }
+
+  .dc-outer {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Sub-tabs row */
+  .dc-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .dc-subtab {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 8px 16px; border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: transparent; color: var(--text-faint);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .dc-subtab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .dc-subtab:hover:not(.active) { background: var(--btn-hover); color: var(--text); }
+  .dc-clear-btn {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 8px 16px; border-radius: 8px;
+    border: 1px solid var(--danger);
+    background: transparent; color: var(--danger);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .dc-clear-btn:active { background: var(--danger-bg); }
+
+  /* Search + add bar */
+  .dc-searchadd {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .dc-searchadd-input {
+    flex: 1;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    padding: 10px 14px; border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--text);
+    outline: none; text-transform: uppercase;
+  }
+  .dc-searchadd-input:focus { border-color: var(--new-border); }
+  .dc-searchadd-input::placeholder { color: var(--text-faint); opacity: 0.6; }
+  .dc-add-btn {
+    padding: 10px 20px; border-radius: 10px;
+    border: none; background: var(--text); color: var(--bg);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; text-transform: uppercase;
+  }
+  .dc-add-btn:active { opacity: 0.8; transform: scale(0.97); }
+
+  /* Inventory list */
+  .dc-list {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .dc-list-hidden { display: none; }
+
+  .dc-empty-msg {
+    padding: 2rem;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--text-faint);
+    letter-spacing: 0.08em;
+  }
+
+  /* Each row */
+  .dc-row {
+    display: flex; align-items: stretch;
+    min-height: 58px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .dc-row:last-child { border-bottom: none; }
+  .dc-row.is-legacy { background: var(--legacy-bg); }
+  .dc-row.is-new    { background: var(--new-bg); }
+
+  /* Type pill */
+  .dc-type-pill {
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    min-width: 78px; padding: 0 12px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-faint);
+    transition: all 0.15s; user-select: none;
+  }
+  .dc-row.is-legacy .dc-type-pill { background: var(--legacy-bg); color: var(--legacy-text); border-right-color: var(--legacy-border); }
+  .dc-row.is-new    .dc-type-pill { background: var(--new-bg);    color: var(--new-text);    border-right-color: var(--new-border); }
+
+  /* Name */
+  .dc-name-inp {
+    flex: 1;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+    background: transparent; border: none; outline: none;
+    color: var(--text); padding: 0 14px;
+    text-transform: uppercase; min-width: 0;
+  }
+  .dc-name-inp::placeholder { color: var(--text-faint); opacity: 0.5; font-weight: 400; }
+
+  /* Cost basis - blue */
+  .dc-cost-box {
+    display: none;
+    align-items: center; gap: 3px;
+    background: #b5d4f4; border: 1px solid var(--new-border);
+    border-radius: 8px; padding: 0 12px; flex-shrink: 0;
+    margin: 6px 4px;
+  }
+  @media (prefers-color-scheme: dark) { .dc-cost-box { background: #0c447c; } }
+  .dc-row.is-new .dc-cost-box { display: flex; }
+  .dc-cost-pfx { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--new-text); opacity: 0.7; }
+  .dc-cost-inp {
+    font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500;
+    color: var(--new-text); background: transparent;
+    border: none; outline: none; width: 64px; text-align: right;
+  }
+  .dc-cost-inp::placeholder { color: var(--new-text); opacity: 0.35; }
+  .dc-cost-inp::-webkit-outer-spin-button,
+  .dc-cost-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* Sale price - red */
+  .dc-sale-box {
+    display: flex; align-items: center; gap: 3px;
+    background: var(--danger-bg); border: 1px solid var(--danger);
+    border-radius: 8px; padding: 0 12px; flex-shrink: 0;
+    margin: 6px 4px;
+  }
+  .dc-sale-pfx { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--danger); opacity: 0.7; }
+  .dc-sale-inp {
+    font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500;
+    color: var(--danger); background: transparent;
+    border: none; outline: none; width: 64px; text-align: right;
+  }
+  .dc-sale-inp::placeholder { color: var(--danger); opacity: 0.35; }
+  .dc-sale-inp::-webkit-outer-spin-button,
+  .dc-sale-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* SOLD button - green */
+  .dc-sold-btn {
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0 18px; flex-shrink: 0;
+    border: none; border-radius: 8px;
+    background: #16a34a; color: #fff;
+    cursor: pointer; transition: opacity 0.15s;
+    margin: 6px 4px;
+  }
+  .dc-sold-btn:active { opacity: 0.8; }
+  .dc-sold-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+  /* Remove button */
+  .dc-remove-btn {
+    font-size: 13px; padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: transparent; color: var(--text-faint);
+    cursor: pointer; flex-shrink: 0;
+    margin: 6px 4px 6px 0;
+    transition: all 0.15s;
+  }
+  .dc-remove-btn:active { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+
+  /* Sold history */
+  .dc-sold-list {
+    display: none; flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .dc-sold-list.visible { display: flex; }
+
+  .dc-sold-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; min-height: 52px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dc-sold-row:last-child { border-bottom: none; }
+  .dc-sold-row.is-legacy { background: var(--legacy-bg); }
+  .dc-sold-row.is-new    { background: var(--new-bg); }
+
+  .dc-sold-badge {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 5px; flex-shrink: 0;
+    background: var(--surface2); color: var(--text-muted);
+    border: 1px solid var(--border-strong);
+  }
+  .dc-sold-row.is-legacy .dc-sold-badge { background: var(--legacy-bg); color: var(--legacy-text); border-color: var(--legacy-border); }
+  .dc-sold-row.is-new    .dc-sold-badge { background: var(--new-bg);    color: var(--new-text);    border-color: var(--new-border); }
+
+  .dc-sold-name { flex: 1; font-size: 15px; font-weight: 500; color: var(--text); text-transform: uppercase; }
+  .dc-sold-sale { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--danger); flex-shrink: 0; }
+  .dc-sold-cost { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--new-text); flex-shrink: 0; }
+  .dc-sold-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
+  .dc-undo-btn {
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    padding: 6px 12px; border-radius: 7px;
+    border: 1px solid var(--danger); color: var(--danger);
+    background: var(--danger-bg); cursor: pointer; flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .dc-undo-btn:active { opacity: 0.8; }
+  .dc-soldrow-remove {
+    font-size: 13px; padding: 5px 8px;
+    border: none; background: none; color: var(--text-faint);
+    cursor: pointer; border-radius: 6px; flex-shrink: 0;
+  }
+  .dc-soldrow-remove:active { color: var(--danger); background: var(--danger-bg); }
+
+  /* Display case overlay */
+  body.display-active {
+    overflow: hidden;
+  }
+  .display-wrap.visible {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 50;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-tabs">
+      <button class="header-tab active" id="tab-binder" onclick="switchTab('binder')">TCG BINDER</button>
+      <button class="header-tab" id="tab-display" onclick="switchTab('display')">DISPLAY CASE</button>
+    </div>
+    <div class="summary-card">
+      <div class="summary-row">
+        <span class="summary-dot summary-dot-legacy"></span>
+        <span class="summary-label">LEGACY</span>
+        <span class="summary-val legacy-val" id="sold-legacy-count">0 sold</span>
+        <span class="summary-sep">·</span>
+        <span class="summary-val legacy-val" id="legacy-cost-ticker">$0.00 cost</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-dot summary-dot-new"></span>
+        <span class="summary-label">NEW</span>
+        <span class="summary-val new-val" id="sold-new-count">0 sold</span>
+        <span class="summary-sep">·</span>
+        <span class="summary-val new-val" id="total-cost">$0.00 cost</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-dot summary-dot-profit"></span>
+        <span class="summary-label">REVENUE</span>
+        <span class="summary-val">$<input class="revenue-input-inline" type="text" inputmode="decimal" id="revenue-input" placeholder="0.00" oninput="updateProfit()"></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-label" style="min-width:unset">NEW REV $</span>
+        <span class="summary-val">$<input class="revenue-input-inline" type="text" inputmode="decimal" id="new-revenue-input" placeholder="0.00" oninput="updateProfit()"></span>
+        <span class="summary-sep">·</span>
+        <span class="summary-val profit-val" id="final-profit-ticker">$0.00 net profit</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button onclick="addPage()">+ ADD PAGE</button>
+      <button class="btn-ghost" onclick="saveJSON()">SAVE</button>
+      <button class="btn-ghost" onclick="document.getElementById('load-input').click()">LOAD</button>
+      <input type="file" id="load-input" accept=".json" style="display:none" onchange="loadJSON(event)">
+    </div>
+  </div>
+</header>
+
+<div id="pages"></div>
+
+<div class="display-wrap" id="display-wrap">
+<div class="dc-outer">
+
+  <div class="dc-subtabs">
+    <button class="dc-subtab active" id="dctab-main" onclick="dcSwitchTab('main')">Inventory <span id="dc-active-count">(0)</span></button>
+    <button class="dc-subtab"        id="dctab-sold" onclick="dcSwitchTab('sold')">Sold <span id="dc-sold-count">(0)</span></button>
+    <button class="dc-clear-btn" onclick="dcClearAll()">Clear All</button>
+  </div>
+
+  <div class="dc-searchadd" id="dc-searchadd">
+    <input class="dc-searchadd-input" id="dc-search-input" type="text"
+      placeholder="Search or add card…" maxlength="60"
+      oninput="dcRender()"
+      onkeydown="if(event.key==='Enter'){dcAddCard();event.preventDefault();}">
+    <button class="dc-add-btn" onclick="dcAddCard()">+ Add</button>
+  </div>
+
+  <div class="dc-list" id="dc-list">
+    <div class="dc-empty-msg" id="dc-empty-msg">No cards yet. Add one above.</div>
+  </div>
+
+  <div class="dc-sold-list" id="dc-sold-list"></div>
+
+</div>
+</div>
+
+<script>
+  let pages = [];
+  let pageCounter = 0;
+  const BINDER_LS_KEY = 'tcg_binder_data';
+
+  function autoSave() {
+    try {
+      localStorage.setItem(BINDER_LS_KEY, JSON.stringify({ pageCounter, pages, dcCards, dcIdCounter }));
+    } catch(e) {}
+  }
+
+  function autoLoad() {
+    try {
+      const raw = localStorage.getItem(BINDER_LS_KEY);
+      if(!raw) return false;
+      const data = JSON.parse(raw);
+      pages = data.pages || [];
+      pageCounter = data.pageCounter || pages.length;
+      const dc = data.dcCards || {};
+      dcCards = dc.inventory ? dc : { inventory: [...(dc.active||[]), ...(dc.queue||[])], sold: dc.sold||[] };
+      dcIdCounter = data.dcIdCounter || 0;
+      pages.forEach((p,i) => {
+        if(!p.name) p.name = 'Page ' + (i+1);
+        if(!p.sold) p.sold = Array(9).fill(false);
+        if(!p.cost) p.cost = Array(9).fill('');
+      });
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // state values: 0=empty, 1=legacy, 2=new
+  // sold: separate array per page, boolean per slot
+
+  function updateProfit() {
+    const revenue    = parseFloat(document.getElementById('revenue-input').value) || 0;
+    const newRevenue = parseFloat(document.getElementById('new-revenue-input').value) || 0;
+    const binderCost = pages.reduce((s,p) => s + p.cost.reduce((cs,v,i) => cs+(p.sold[i]&&p.state[i]===2?(parseFloat(v)||0):0), 0), 0);
+    const dcCost     = (typeof dcCards !== 'undefined') ? dcCards.sold.filter(c=>c.type===2).reduce((s,c)=>s+(parseFloat(c.cost)||0),0) : 0;
+    const totalNewCost  = binderCost + dcCost;
+    const legacyRevenue = Math.max(0, revenue - newRevenue);
+    const legacyCost    = legacyRevenue / 2;
+    const finalProfit   = revenue - totalNewCost - legacyCost;
+    const lcEl = document.getElementById('legacy-cost-ticker');
+    if(lcEl) lcEl.textContent = '$' + legacyCost.toFixed(2) + ' cost';
+    const fpEl = document.getElementById('final-profit-ticker');
+    if(fpEl) fpEl.textContent = '$' + finalProfit.toFixed(2) + ' net profit';
+  }
+
+  function updateHeader() {
+    const totalLegacy = pages.reduce((s,p) => s + p.state.filter(v=>v===1).length, 0);
+    const totalNew    = pages.reduce((s,p) => s + p.state.filter(v=>v===2).length, 0);
+    const soldLegacy  = pages.reduce((s,p) => s + p.sold.filter((v,i) => v && p.state[i]===1).length, 0);
+    const soldNew     = pages.reduce((s,p) => s + p.sold.filter((v,i) => v && p.state[i]===2).length, 0);
+    const binderCost  = pages.reduce((s,p) => s + p.cost.reduce((cs,v,i) => cs+(p.sold[i]&&p.state[i]===2?(parseFloat(v)||0):0), 0), 0);
+    const dcNewCost   = dcCards.sold.filter(c=>c.type===2).reduce((s,c)=>s+(parseFloat(c.cost)||0),0);
+    const totalCost   = binderCost + dcNewCost;
+    const dcSoldLegacy = dcCards.sold.filter(c=>c.type===1).length;
+    const dcSoldNew    = dcCards.sold.filter(c=>c.type===2).length;
+    const legacySoldEl = document.getElementById('sold-legacy-count');
+    if(legacySoldEl) legacySoldEl.textContent = (soldLegacy + dcSoldLegacy)+' sold';
+    const newSoldEl = document.getElementById('sold-new-count');
+    if(newSoldEl) newSoldEl.textContent = (soldNew + dcSoldNew)+' sold';
+    const newCostEl = document.getElementById('total-cost');
+    if(newCostEl) newCostEl.textContent = '$'+totalCost.toFixed(2)+' cost';
+    updateProfit();
+  }
+
+  function updatePageMeta(pageId) {
+    const page = pages.find(p=>p.id===pageId); if(!page) return;
+    const legacy = page.state.filter(v=>v===1).length;
+    const nw     = page.state.filter(v=>v===2).length;
+    const soldL  = page.sold.filter((v,i)=>v&&page.state[i]===1).length;
+    const soldN  = page.sold.filter((v,i)=>v&&page.state[i]===2).length;
+    const metaEl = document.querySelector('[data-meta="'+pageId+'"]');
+    if(metaEl) metaEl.textContent = legacy+'L · '+nw+'N · '+soldL+'Ls · '+soldN+'Ns';
+  }
+
+  function togglePocket(pageId, idx, pocketEl) {
+    const page = pages.find(p=>p.id===pageId); if(!page) return;
+    if(page.sold[idx]) return;
+    page.state[idx] = (page.state[idx]+1) % 3;
+    const val = page.state[idx];
+    pocketEl.classList.remove('legacy','new-inv');
+    if(val===1) pocketEl.classList.add('legacy');
+    if(val===2) pocketEl.classList.add('new-inv');
+    // Clear cost if not new anymore
+    if(val!==2) {
+      page.cost[idx]='';
+      const ci=pocketEl.querySelector('.cost-input'); if(ci) ci.value='';
+    }
+    updatePageMeta(pageId);
+    updateHeader();
+    autoSave();
+  }
+
+  function toggleSold(pageId, idx, pocketEl, e) {
+    e.stopPropagation();
+    const page = pages.find(p=>p.id===pageId); if(!page) return;
+    // Only mark sold if pocket has a state (legacy or new)
+    if(page.state[idx]===0 && !page.sold[idx]) return;
+    page.sold[idx] = !page.sold[idx];
+    pocketEl.classList.toggle('sold', page.sold[idx]);
+    const soldBtn = pocketEl.querySelector('.sold-btn');
+    if(soldBtn) soldBtn.textContent = page.sold[idx] ? 'undo' : 'sold';
+    updatePageMeta(pageId);
+    updateHeader();
+  }
+
+  function clearPage(pageId) {
+    const page = pages.find(p=>p.id===pageId); if(!page) return;
+    page.state.fill(0);
+    page.sold.fill(false);
+    page.cost.fill('');
+    document.querySelectorAll('[data-page="'+pageId+'"] .pocket')
+      .forEach(p => {
+        p.classList.remove('legacy','new-inv','sold');
+        const sb=p.querySelector('.sold-btn'); if(sb) sb.textContent='sold';
+        const ci=p.querySelector('.cost-input'); if(ci) ci.value='';
+      });
+    updatePageMeta(pageId);
+    updateHeader();
+    autoSave();
+  }
+
+  function removePage(id) {
+    pages = pages.filter(p=>p.id!==id);
+    renderAllPages();
+    autoSave();
+  }
+
+  function addPage() {
+    pageCounter++;
+    pages.push({ id:pageCounter, name:'Page '+pageCounter, state:Array(9).fill(0), sold:Array(9).fill(false), cost:Array(9).fill('') });
+    renderAllPages();
+    autoSave();
+  }
+
+  function startEditName(pageId) {
+    const titleEl=document.querySelector('[data-title="'+pageId+'"]');
+    const inputEl=document.querySelector('[data-title-input="'+pageId+'"]');
+    const editBtn=document.querySelector('[data-edit-btn="'+pageId+'"]');
+    if(!titleEl||!inputEl) return;
+    const page=pages.find(p=>p.id===pageId);
+    inputEl.value=page.name;
+    titleEl.style.display='none'; inputEl.style.display='block';
+    if(editBtn) editBtn.style.display='none';
+    inputEl.focus(); inputEl.select();
+  }
+
+  function commitEditName(pageId) {
+    const titleEl=document.querySelector('[data-title="'+pageId+'"]');
+    const inputEl=document.querySelector('[data-title-input="'+pageId+'"]');
+    const editBtn=document.querySelector('[data-edit-btn="'+pageId+'"]');
+    if(!titleEl||!inputEl) return;
+    const page=pages.find(p=>p.id===pageId);
+    const newName=inputEl.value.trim();
+    page.name=newName||('Page '+page.id);
+    titleEl.textContent=page.name;
+    titleEl.style.display='block'; inputEl.style.display='none';
+    if(editBtn) editBtn.style.display='inline';
+    autoSave();
+  }
+
+  function buildCard(page, pageIdx) {
+    const legacy = page.state.filter(v=>v===1).length;
+    const nw     = page.state.filter(v=>v===2).length;
+    const soldL  = page.sold.filter((v,i)=>v&&page.state[i]===1).length;
+    const soldN  = page.sold.filter((v,i)=>v&&page.state[i]===2).length;
+
+    const card = document.createElement('div');
+    card.className='page-card'; card.dataset.page=page.id;
+
+    // Header
+    const header=document.createElement('div'); header.className='page-header';
+    const titleWrap=document.createElement('div'); titleWrap.className='page-title-wrap';
+    const titleEl=document.createElement('span'); titleEl.className='page-title'; titleEl.dataset.title=page.id; titleEl.textContent=page.name; titleEl.title='Click pencil to rename';
+    const inputEl=document.createElement('input'); inputEl.type='text'; inputEl.className='page-title-input'; inputEl.dataset.titleInput=page.id; inputEl.maxLength=30;
+    inputEl.addEventListener('blur',()=>commitEditName(page.id));
+    inputEl.addEventListener('keydown',e=>{ if(e.key==='Enter') inputEl.blur(); if(e.key==='Escape'){const pg=pages.find(p=>p.id===page.id);inputEl.value=pg?pg.name:'';inputEl.blur();}});
+    const editBtn=document.createElement('span'); editBtn.className='edit-icon'; editBtn.dataset.editBtn=page.id; editBtn.textContent='✎'; editBtn.title='Rename page';
+    editBtn.addEventListener('click',()=>startEditName(page.id));
+    titleWrap.appendChild(titleEl); titleWrap.appendChild(inputEl); titleWrap.appendChild(editBtn);
+
+    const right=document.createElement('div'); right.className='page-right';
+    const meta=document.createElement('span'); meta.className='page-meta'; meta.dataset.meta=page.id;
+    meta.textContent=legacy+'L · '+nw+'N · '+soldL+'Ls · '+soldN+'Ns';
+    right.appendChild(meta);
+    if(pages.length>1){const removeBtn=document.createElement('button');removeBtn.className='remove-btn';removeBtn.textContent='Remove';removeBtn.onclick=()=>removePage(page.id);right.appendChild(removeBtn);}
+    header.appendChild(titleWrap); header.appendChild(right);
+
+    // Grid
+    const grid=document.createElement('div'); grid.className='grid';
+    for(let i=0;i<9;i++){
+      const pocket=document.createElement('div');
+      const val=page.state[i]; const isSold=page.sold[i];
+      let cls='pocket';
+      if(val===1) cls+=' legacy';
+      if(val===2) cls+=' new-inv';
+      if(isSold) cls+=' sold';
+      pocket.className=cls;
+      pocket.innerHTML='<span class="slot-num">'+(i+1)+'</span><span class="star">★</span>';
+
+      // Cost basis input (new cards only)
+      const costWrap=document.createElement('div'); costWrap.className='cost-input-wrap';
+      const costPrefix=document.createElement('span'); costPrefix.className='cost-prefix'; costPrefix.textContent='$';
+      const costInp=document.createElement('input'); costInp.type='number'; costInp.min='0'; costInp.step='0.01';
+      costInp.className='cost-input'; costInp.placeholder='0.00';
+      costInp.value=page.cost[i]||'';
+      costInp.addEventListener('click', e=>e.stopPropagation());
+      costInp.addEventListener('input', ()=>{ page.cost[i]=costInp.value; updateHeader(); autoSave(); });
+      costWrap.appendChild(costPrefix); costWrap.appendChild(costInp);
+      pocket.appendChild(costWrap);
+
+      // Sold button
+      const soldBtn=document.createElement('button');
+      soldBtn.className='sold-btn';
+      soldBtn.textContent=isSold?'undo':'sold';
+      soldBtn.onclick=(e)=>toggleSold(page.id,i,pocket,e);
+      pocket.appendChild(soldBtn);
+
+      const pid=page.id,idx=i;
+      pocket.addEventListener('click',()=>togglePocket(pid,idx,pocket));
+      grid.appendChild(pocket);
+    }
+
+    // Footer
+    const footer=document.createElement('div'); footer.className='page-footer';
+    const legend=document.createElement('div'); legend.className='legend';
+    legend.innerHTML=
+      '<div class="legend-item"><div class="legend-swatch swatch-legacy"></div><span>LEGACY</span></div>'+
+      '<div class="legend-item"><div class="legend-swatch swatch-new"></div><span>NEW</span></div>';
+    const clearBtn=document.createElement('button'); clearBtn.className='clear-btn'; clearBtn.textContent='Clear'; clearBtn.onclick=()=>clearPage(page.id);
+    footer.appendChild(legend); footer.appendChild(clearBtn);
+
+    card.appendChild(header); card.appendChild(grid); card.appendChild(footer);
+    return card;
+  }
+
+  function renderAllPages() {
+    const container=document.getElementById('pages'); container.innerHTML='';
+    pages.forEach((page,pageIdx)=>{
+      if(pageIdx===0){
+        const row=document.createElement('div'); row.className='row-solo';
+        row.appendChild(buildCard(page,pageIdx)); container.appendChild(row);
+      } else if((pageIdx%2)===1){
+        const row=document.createElement('div'); row.className='row-pair';
+        row.appendChild(buildCard(page,pageIdx));
+        if(pages[pageIdx+1]) row.appendChild(buildCard(pages[pageIdx+1],pageIdx+1));
+        container.appendChild(row);
+      }
+    });
+    updateHeader();
+  }
+
+  function saveJSON() {
+    const data={pageCounter,pages};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tcg_binder.json'; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  function loadJSON(event) {
+    const file=event.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try {
+        const data=JSON.parse(e.target.result);
+        pages=data.pages||[];
+        pageCounter=data.pageCounter||pages.length;
+        pages.forEach((p,i)=>{
+          if(!p.name) p.name='Page '+(i+1);
+          if(!p.sold) p.sold=Array(9).fill(false);
+          if(!p.cost) p.cost=Array(9).fill('');
+        });
+        renderAllPages();
+      } catch { alert("Could not read that file. Make sure it's a valid TCG BINDER save."); }
+    };
+    reader.readAsText(file); event.target.value='';
+  }
+
+  // Auto-load saved state or start fresh
+  let dcCards = { inventory: [], sold: [] };
+  let dcIdCounter = 0;
+  let dcCurrentTab = 'main';
+  if(!autoLoad()) { addPage(); } else { renderAllPages(); }
+
+
+  function switchTab(tab) {
+    document.getElementById('tab-binder').classList.toggle('active', tab==='binder');
+    document.getElementById('tab-display').classList.toggle('active', tab==='display');
+    document.getElementById('pages').style.display = tab==='binder' ? '' : 'none';
+    const dw = document.getElementById('display-wrap');
+    if(tab==='display') {
+      dw.classList.add('visible');
+      // Set top to actual header height so nothing is covered
+      const headerH = document.querySelector('header').offsetHeight;
+      dw.style.top = headerH + 'px';
+    } else {
+      dw.classList.remove('visible');
+      dw.style.top = '';
+    }
+    document.body.classList.toggle('display-active', tab==='display');
+    const addBtn = document.querySelector('button[onclick="addPage()"]');
+    if(addBtn) addBtn.style.display = tab==='binder' ? '' : 'none';
+    if(tab==='display') { dcRender(); dcUpdateHeader(); }
+  }
+
+  function dcSwitchTab(tab) {
+    dcCurrentTab = tab;
+    document.getElementById('dctab-main').classList.toggle('active', tab==='main');
+    document.getElementById('dctab-sold').classList.toggle('active', tab==='sold');
+    document.getElementById('dc-searchadd').style.display = tab==='main' ? '' : 'none';
+    document.getElementById('dc-list').style.display = tab==='main' ? '' : 'none';
+    const soldList = document.getElementById('dc-sold-list');
+    if(tab==='sold') { soldList.classList.add('visible'); dcRenderSold(); }
+    else { soldList.classList.remove('visible'); }
+    if(tab==='main') dcRender();
+  }
+
+  function dcUpdateHeader() {
+    const invEl  = document.getElementById('dc-active-count');
+    const soldEl = document.getElementById('dc-sold-count');
+    if(invEl)  invEl.textContent  = '(' + dcCards.inventory.length + ')';
+    if(soldEl) soldEl.textContent = '(' + dcCards.sold.length + ')';
+  }
+
+  function dcAddCard() {
+    const inp = document.getElementById('dc-search-input');
+    if(!inp) return;
+    const n = inp.value.trim();
+    if(!n) return;
+    dcCards.inventory.push({ id: ++dcIdCounter, name: n, type: 0, cost: '', salePrice: '' });
+    inp.value = '';
+    dcRender();
+    dcUpdateHeader();
+    updateHeader();
+    updateProfit();
+    autoSave();
+  }
+
+  function dcRender() {
+    const list = document.getElementById('dc-list');
+    if(!list) return;
+    const searchEl = document.getElementById('dc-search-input');
+    const query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    // Clear existing rows but keep empty msg element
+    Array.from(list.children).forEach(c => { if(!c.id) list.removeChild(c); });
+    const emptyMsg = document.getElementById('dc-empty-msg');
+    const cards = dcCards.inventory.filter(c => !query || (c.name||'').toLowerCase().includes(query));
+    if(!cards.length) {
+      if(emptyMsg) { emptyMsg.style.display = ''; emptyMsg.textContent = query ? 'NO MATCHES.' : 'NO CARDS YET. ADD ONE ABOVE.'; }
+      return;
+    }
+    if(emptyMsg) emptyMsg.style.display = 'none';
+    cards.forEach(card => list.appendChild(dcBuildRow(card)));
+  }
+
+  function dcBuildRow(card) {
+    const row = document.createElement('div');
+    row.className = 'dc-row' + (card.type===1?' is-legacy':card.type===2?' is-new':'');
+
+    // Type pill
+    const pill = document.createElement('div');
+    pill.className = 'dc-type-pill';
+    pill.textContent = card.type===1?'LEGACY':card.type===2?'NEW':'—';
+    pill.onclick = () => {
+      card.type = (card.type+1)%3;
+      if(card.type===0) card.cost='';
+      row.className = 'dc-row' + (card.type===1?' is-legacy':card.type===2?' is-new':'');
+      pill.textContent = card.type===1?'LEGACY':card.type===2?'NEW':'—';
+      costBox.style.display = card.type===2 ? 'flex' : 'none';
+      updateHeader(); updateProfit(); autoSave();
+    };
+    row.appendChild(pill);
+
+    // Name
+    const nameInp = document.createElement('input');
+    nameInp.className = 'dc-name-inp';
+    nameInp.type = 'text'; nameInp.value = card.name; nameInp.placeholder = 'Card name…';
+    nameInp.onchange = () => { card.name = nameInp.value; autoSave(); };
+    row.appendChild(nameInp);
+
+    // Cost basis (new only)
+    const costBox = document.createElement('div');
+    costBox.className = 'dc-cost-box';
+    costBox.style.display = card.type===2 ? 'flex' : 'none';
+    const costPfx = document.createElement('span'); costPfx.className = 'dc-cost-pfx'; costPfx.textContent = '$';
+    const costInp = document.createElement('input');
+    costInp.className = 'dc-cost-inp'; costInp.type = 'text'; costInp.inputMode = 'decimal';
+    costInp.placeholder = '0.00'; costInp.value = card.cost || '';
+    costInp.oninput = () => { card.cost = costInp.value; updateHeader(); updateProfit(); autoSave(); };
+    costBox.appendChild(costPfx); costBox.appendChild(costInp);
+    row.appendChild(costBox);
+
+    // Sale price (red)
+    const saleBox = document.createElement('div'); saleBox.className = 'dc-sale-box';
+    const salePfx = document.createElement('span'); salePfx.className = 'dc-sale-pfx'; salePfx.textContent = '$';
+    const saleInp = document.createElement('input');
+    saleInp.className = 'dc-sale-inp'; saleInp.type = 'text'; saleInp.inputMode = 'decimal';
+    saleInp.placeholder = '0.00'; saleInp.value = card.salePrice || '';
+    saleInp.oninput = () => { card.salePrice = saleInp.value; };
+    saleBox.appendChild(salePfx); saleBox.appendChild(saleInp);
+    row.appendChild(saleBox);
+
+    // SOLD button
+    const soldBtn = document.createElement('button'); soldBtn.className = 'dc-sold-btn';
+    soldBtn.textContent = 'SOLD';
+    soldBtn.onclick = () => {
+      if(soldBtn.disabled) return;
+      soldBtn.disabled = true;
+      card.soldAt = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const si = row.querySelector('.dc-sale-inp'); if(si) card.salePrice = si.value;
+      const ci = row.querySelector('.dc-cost-inp'); if(ci) card.cost = ci.value;
+      dcCards.inventory = dcCards.inventory.filter(c=>c.id!==card.id);
+      dcCards.sold.unshift(card);
+      if(row.parentNode) row.parentNode.removeChild(row);
+      const list2 = document.getElementById('dc-list');
+      if(list2 && !dcCards.inventory.length) {
+        const em = document.getElementById('dc-empty-msg');
+        if(em) em.style.display = '';
+      }
+      dcUpdateHeader(); updateHeader(); updateProfit(); autoSave();
+    };
+    row.appendChild(soldBtn);
+
+    // Remove
+    const remBtn = document.createElement('button'); remBtn.className = 'dc-remove-btn';
+    remBtn.textContent = '✕';
+    remBtn.onclick = () => {
+      dcCards.inventory = dcCards.inventory.filter(c=>c.id!==card.id);
+      list.removeChild(row);
+      if(!dcCards.inventory.length) {
+        const em = document.getElementById('dc-empty-msg'); if(em) em.style.display='';
+      }
+      dcUpdateHeader(); updateHeader(); updateProfit(); autoSave();
+    };
+    row.appendChild(remBtn);
+
+    return row;
+  }
+
+  function dcRenderSold() {
+    const soldList = document.getElementById('dc-sold-list');
+    if(!soldList) return;
+    soldList.innerHTML = '';
+    if(!dcCards.sold.length) {
+      const e = document.createElement('div'); e.className='dc-empty-msg'; e.textContent='NO DISPLAY SALES YET.'; soldList.appendChild(e); return;
+    }
+    dcCards.sold.forEach(card => {
+      const row = document.createElement('div');
+      row.className = 'dc-sold-row' + (card.type===1?' is-legacy':card.type===2?' is-new':'');
+      const badge = document.createElement('span'); badge.className='dc-sold-badge';
+      badge.textContent = card.type===1?'LEGACY':card.type===2?'NEW':'—';
+      const name = document.createElement('span'); name.className='dc-sold-name'; name.textContent=card.name||'UNNAMED';
+      row.appendChild(badge); row.appendChild(name);
+      if(card.salePrice && parseFloat(card.salePrice)>0) {
+        const sale=document.createElement('span'); sale.className='dc-sold-sale';
+        sale.textContent='$'+parseFloat(card.salePrice).toFixed(2); row.appendChild(sale);
+      }
+      if(card.type===2 && card.cost && parseFloat(card.cost)>0) {
+        const cost=document.createElement('span'); cost.className='dc-sold-cost';
+        cost.textContent='cost $'+parseFloat(card.cost).toFixed(2); row.appendChild(cost);
+      }
+      const ts=document.createElement('span'); ts.className='dc-sold-time'; ts.textContent=card.soldAt||''; row.appendChild(ts);
+      const undoBtn=document.createElement('button'); undoBtn.className='dc-undo-btn'; undoBtn.textContent='UNDO';
+      undoBtn.onclick=()=>{
+        dcCards.sold=dcCards.sold.filter(c=>c.id!==card.id);
+        delete card.soldAt; dcCards.inventory.unshift(card);
+        dcRenderSold(); dcUpdateHeader(); updateHeader(); updateProfit(); autoSave();
+        if(dcCurrentTab==='main') dcRender();
+      };
+      row.appendChild(undoBtn);
+      const rem=document.createElement('button'); rem.className='dc-soldrow-remove'; rem.textContent='✕';
+      rem.onclick=()=>{ dcCards.sold=dcCards.sold.filter(c=>c.id!==card.id); dcRenderSold(); dcUpdateHeader(); updateHeader(); updateProfit(); autoSave(); };
+      row.appendChild(rem);
+      soldList.appendChild(row);
+    });
+  }
+
+  function dcClearAll() {
+    if(!confirm('CLEAR ALL DISPLAY CASE INVENTORY AND SOLD HISTORY?')) return;
+    dcCards = { inventory: [], sold: [] };
+    dcIdCounter = 0;
+    dcRender(); dcRenderSold(); dcUpdateHeader(); updateHeader(); updateProfit(); autoSave();
+    dcSwitchTab('main');
+  }
+
+  // Override saveJSON
+  saveJSON = function() {
+    const data = { pageCounter, pages, dcCards, dcIdCounter };
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tcg_binder.json'; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  // Override loadJSON
+  loadJSON = function(event) {
+    const file=event.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try {
+        const data=JSON.parse(e.target.result);
+        pages=data.pages||[];
+        pageCounter=data.pageCounter||pages.length;
+        const dc=data.dcCards||{};
+        dcCards=dc.inventory?dc:{inventory:[...(dc.active||[]),...(dc.queue||[])],sold:dc.sold||[]};
+        dcIdCounter=data.dcIdCounter||0;
+        pages.forEach((p,i)=>{
+          if(!p.name) p.name='Page '+(i+1);
+          if(!p.sold) p.sold=Array(9).fill(false);
+          if(!p.cost) p.cost=Array(9).fill('');
+        });
+        renderAllPages(); dcRender(); dcUpdateHeader(); autoSave();
+      } catch { alert('Could not read that file.'); }
+    };
+    reader.readAsText(file); event.target.value='';
+  };
+
+  // Override updateProfit
+  updateProfit = function() {
+    const revenue    = parseFloat(document.getElementById('revenue-input').value)||0;
+    const newRevenue = parseFloat(document.getElementById('new-revenue-input').value)||0;
+    const binderCost = pages.reduce((s,p)=>s+p.cost.reduce((cs,v,i)=>cs+(p.sold[i]&&p.state[i]===2?(parseFloat(v)||0):0),0),0);
+    const dcCost     = dcCards.sold.filter(c=>c.type===2).reduce((s,c)=>s+(parseFloat(c.cost)||0),0);
+    const totalNewCost  = binderCost+dcCost;
+    const legacyRevenue = Math.max(0,revenue-newRevenue);
+    const legacyCost    = legacyRevenue/2;
+    const finalProfit   = revenue-totalNewCost-legacyCost;
+    const lcEl=document.getElementById('legacy-cost-ticker'); if(lcEl) lcEl.textContent='$'+legacyCost.toFixed(2)+' cost';
+    const fpEl=document.getElementById('final-profit-ticker'); if(fpEl) fpEl.textContent='$'+finalProfit.toFixed(2)+' net profit';
+  };
+
+  dcRender(); dcUpdateHeader();
+</script>
+</body>
+</html>
+</script>
+</body>
+</html>
